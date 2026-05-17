@@ -6,6 +6,7 @@
 ## 機能概要
 
 - **従業員参加型シフト作成** — 希望日時の提出とオープン枠への直接応募
+- **定期パターン登録** — 曜日・時間・希望度の組み合わせを定期パターンとして登録し、期間指定で一括適用
 - **公平性ダッシュボード** — 希望時間との乖離を全員分一覧表示・標準偏差で公平性を数値化
 - **年度管理** — 4/1〜翌3/31 を1年度として管理
 - **シフト自動生成** — 曜日パターン（テンプレート）と営業日設定から年度分を一括生成
@@ -75,7 +76,8 @@ npm run dev
 |---|---|---|
 | 名前選択 | `/` | 従業員 |
 | シフト確認・応募 | `/worker/[id]` | 従業員 |
-| 希望日時の提出 | `/worker/[id]/availability` | 従業員 |
+| 希望日時の提出（個別） | `/worker/[id]/availability` | 従業員 |
+| 定期パターンの登録 | `/worker/[id]/recurring-availability` | 従業員 |
 | 希望時間の設定 | `/worker/[id]/settings` | 従業員 |
 | ダッシュボード | `/dashboard` | 全員 |
 | シフト割当・確定 | `/admin/shifts/[id]` | 管理者 |
@@ -99,20 +101,23 @@ npm run build        # 本番ビルド
 npm run db:push      # スキーマをDBに反映
 npm run db:studio    # Drizzle Studio でDB確認
 npm run db:generate  # マイグレーションファイル生成
+npm run db:migrate   # マイグレーション実行
 npm run lint         # ESLint
 ```
 
 ## データモデル
 
 ```
-fiscal_years          年度
-business_day_rules    営業曜日（年度ごと）
-closed_dates          休業日（祝日・臨時休業）
-shift_templates       シフトテンプレート（繰り返しパターン）
-workers               従業員（認証なし・名前のみ）
-shift_slots           シフト枠（テンプレート展開 or 個別作成）
-availabilities        希望提出
-shift_assignments     割当
+fiscal_years                     年度
+business_day_rules               営業曜日（年度ごと）
+closed_dates                     休業日（祝日・臨時休業）
+shift_templates                  シフトテンプレート（繰り返しパターン）
+workers                          従業員（認証なし・名前のみ）
+shift_slots                      シフト枠（テンプレート展開 or 個別作成）
+availabilities                   希望提出
+shift_assignments                割当
+recurring_availability_patterns  定期パターン（曜日・時間・希望度）
+recurring_pattern_applications   定期パターン適用履歴
 ```
 
 ## 将来対応（スコープ外）
