@@ -38,8 +38,28 @@ export default async function AvailabilityPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{worker[0].name}さんの希望提出</h1>
-      <p className="text-muted-foreground">{selectedYear}年度</p>
+      <div>
+        <h1 className="text-2xl font-bold">{worker[0].name}さんの希望提出</h1>
+        <p className="text-muted-foreground">{selectedYear}年度</p>
+      </div>
+
+      {/* タブナビゲーション */}
+      <div className="border-b">
+        <nav className="flex space-x-8">
+          <a
+            href={`/worker/${id}/availability`}
+            className="border-b-2 border-blue-500 py-2 px-1 text-sm font-medium text-blue-600"
+          >
+            個別登録
+          </a>
+          <a
+            href={`/worker/${id}/recurring-availability`}
+            className="border-b-2 border-transparent py-2 px-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-gray-300"
+          >
+            定期パターン
+          </a>
+        </nav>
+      </div>
 
       {/* 提出フォーム */}
       <Card>

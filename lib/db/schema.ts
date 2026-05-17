@@ -8,6 +8,7 @@ import {
   time,
   timestamp,
   unique,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const shiftSlotStatusEnum = pgEnum("shift_slot_status", ["open", "confirmed"]);
@@ -108,5 +109,35 @@ export const shiftAssignments = pgTable("shift_assignments", {
     .references(() => workers.id, { onDelete: "cascade" }),
   source: assignmentSourceEnum("source").notNull(),
   status: assignmentStatusEnum("status").notNull().default("tentative"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 定期勤務パターン
+export const recurringAvailabilityPatterns = pgTable("recurring_availability_patterns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workerId: uuid("worker_id")
+    .notNull()
+    .references(() => workers.id, { onDelete: "cascade" }),
+  fiscalYearId: uuid("fiscal_year_id")
+    .notNull()
+    .references(() => fiscalYears.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  daysOfWeek: integer("days_of_week").array().notNull(), // [1,2,3,4,5] = 月〜金
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  preference: preferenceEnum("preference").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 定期パターン適用履歴
+export const recurringPatternApplications = pgTable("recurring_pattern_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  patternId: uuid("pattern_id")
+    .notNull()
+    .references(() => recurringAvailabilityPatterns.id, { onDelete: "cascade" }),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  appliedCount: integer("applied_count").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
