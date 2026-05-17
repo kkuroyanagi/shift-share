@@ -83,6 +83,9 @@ export default async function WorkerPage({
           <Link href={`/worker/${id}/availability`}>
             <Button variant="outline" size="sm">希望提出</Button>
           </Link>
+          <Link href={`/worker/${id}/recurring-availability`}>
+            <Button variant="outline" size="sm">定期パターン</Button>
+          </Link>
           <Link href={`/worker/${id}/settings`}>
             <Button variant="ghost" size="sm">設定</Button>
           </Link>
