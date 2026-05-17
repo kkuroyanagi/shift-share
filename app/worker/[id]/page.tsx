@@ -9,16 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { CalendarWrapperWorker } from "@/components/calendar/calendar-wrapper-worker";
 
 export default async function WorkerPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; view?: string }>;
 }) {
   const { id } = await params;
-  const { month: monthParam } = await searchParams;
+  const { month: monthParam, view: viewParam } = await searchParams;
   const selectedYear = await getSelectedYear();
 
   const worker = await db.select().from(workers).where(eq(workers.id, id)).limit(1);
@@ -29,6 +30,7 @@ export default async function WorkerPage({
   const fiscalYearId = fy[0]?.id;
 
   const selectedMonth = monthParam ? parseInt(monthParam) : new Date().getMonth() + 1;
+  const isCalendarView = viewParam === "calendar";
 
   // この月のオープンなシフト枠をすべて取得
   const allSlots = fiscalYearId
@@ -53,6 +55,17 @@ export default async function WorkerPage({
     : [];
   const mySlotIds = new Set(myAssignments.map((a) => a.shiftSlotId));
   const myConfirmedMap = new Map(myAssignments.map((a) => [a.shiftSlotId, a.status]));
+
+  // 全ワーカーを取得（カレンダー表示用）
+  const allWorkers = await db.select().from(workers);
+
+  // 全割当を取得（カレンダー表示用）
+  const allAssignments = allSlots.length
+    ? await db
+        .select()
+        .from(shiftAssignments)
+        .where(sql`${shiftAssignments.shiftSlotId} = ANY(ARRAY[${sql.join(allSlots.map((s) => sql`${s.id}::uuid`))}])`)
+    : [];
 
   // 月合計
   const confirmedSlots = allSlots.filter(
@@ -92,6 +105,22 @@ export default async function WorkerPage({
         </div>
       </div>
 
+      {/* 表示切替 */}
+      <div className="flex gap-2">
+        <Link
+          href={`/worker/${id}?month=${selectedMonth}&view=list`}
+          className={`px-3 py-1 rounded-md text-sm border transition-colors ${!isCalendarView ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+        >
+          リスト表示
+        </Link>
+        <Link
+          href={`/worker/${id}?month=${selectedMonth}&view=calendar`}
+          className={`px-3 py-1 rounded-md text-sm border transition-colors ${isCalendarView ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+        >
+          カレンダー表示
+        </Link>
+      </div>
+
       {/* 月サマリー */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
@@ -120,10 +149,11 @@ export default async function WorkerPage({
       <div className="flex gap-2 flex-wrap">
         {MONTHS.map((label, i) => {
           const m = i < 9 ? i + 4 : i - 8;
+          const currentView = isCalendarView ? "calendar" : "list";
           return (
             <Link
               key={m}
-              href={`/worker/${id}?month=${m}`}
+              href={`/worker/${id}?month=${m}&view=${currentView}`}
               className={`px-3 py-1 rounded-md text-sm border transition-colors ${selectedMonth === m ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
             >
               {label}
@@ -132,56 +162,68 @@ export default async function WorkerPage({
         })}
       </div>
 
-      {/* シフト一覧 */}
-      {grouped.size === 0 ? (
-        <p className="text-center text-muted-foreground py-12">この月にシフト枠がありません</p>
+      {/* カレンダー表示またはシフト一覧 */}
+      {isCalendarView ? (
+        <CalendarWrapperWorker
+          year={selectedYear}
+          month={selectedMonth}
+          slots={allSlots}
+          assignments={allAssignments}
+          workers={allWorkers}
+          workerId={id}
+        />
       ) : (
-        <div className="space-y-3">
-          {Array.from(grouped.entries()).map(([date, daySlots]) => (
-            <Card key={date}>
-              <CardContent className="py-4">
-                <p className="font-semibold mb-2">{date}</p>
-                <div className="flex flex-wrap gap-2">
-                  {(daySlots as typeof allSlots).map((slot) => {
-                    const isApplied = mySlotIds.has(slot.id);
-                    const status = myConfirmedMap.get(slot.id);
-                    return (
-                      <div
-                        key={slot.id}
-                        className={`p-3 rounded-md border text-sm ${isApplied ? "bg-blue-50 border-blue-200" : "bg-background"}`}
-                      >
-                        <p className="font-medium">{formatTime(slot.startTime)}〜{formatTime(slot.endTime)}</p>
-                        <p className="text-muted-foreground text-xs">{formatMinutes(durationMinutes(slot.startTime, slot.endTime))}</p>
-                        {isApplied ? (
-                          <div className="mt-2 space-y-1">
-                            <Badge variant={status === "confirmed" ? "success" : "warning"}>
-                              {status === "confirmed" ? "確定" : "申請中"}
-                            </Badge>
-                            {status !== "confirmed" && (
-                              <form action={withdrawShift}>
-                                <input type="hidden" name="slotId" value={slot.id} />
-                                <input type="hidden" name="workerId" value={id} />
-                                <Button variant="ghost" size="sm" type="submit" className="h-6 text-xs">取消</Button>
-                              </form>
-                            )}
-                          </div>
-                        ) : slot.status === "open" ? (
-                          <form action={applyShift} className="mt-2">
-                            <input type="hidden" name="slotId" value={slot.id} />
-                            <input type="hidden" name="workerId" value={id} />
-                            <Button size="sm" type="submit" className="h-7 text-xs">応募</Button>
-                          </form>
-                        ) : (
-                          <Badge variant="secondary" className="mt-2">確定済</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        /* シフト一覧 */
+        grouped.size === 0 ? (
+          <p className="text-center text-muted-foreground py-12">この月にシフト枠がありません</p>
+        ) : (
+          <div className="space-y-3">
+            {Array.from(grouped.entries()).map(([date, daySlots]) => (
+              <Card key={date}>
+                <CardContent className="py-4">
+                  <p className="font-semibold mb-2">{date}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(daySlots as typeof allSlots).map((slot) => {
+                      const isApplied = mySlotIds.has(slot.id);
+                      const status = myConfirmedMap.get(slot.id);
+                      return (
+                        <div
+                          key={slot.id}
+                          className={`p-3 rounded-md border text-sm ${isApplied ? "bg-blue-50 border-blue-200" : "bg-background"}`}
+                        >
+                          <p className="font-medium">{formatTime(slot.startTime)}〜{formatTime(slot.endTime)}</p>
+                          <p className="text-muted-foreground text-xs">{formatMinutes(durationMinutes(slot.startTime, slot.endTime))}</p>
+                          {isApplied ? (
+                            <div className="mt-2 space-y-1">
+                              <Badge variant={status === "confirmed" ? "success" : "warning"}>
+                                {status === "confirmed" ? "確定" : "申請中"}
+                              </Badge>
+                              {status !== "confirmed" && (
+                                <form action={withdrawShift}>
+                                  <input type="hidden" name="slotId" value={slot.id} />
+                                  <input type="hidden" name="workerId" value={id} />
+                                  <Button variant="ghost" size="sm" type="submit" className="h-6 text-xs">取消</Button>
+                                </form>
+                              )}
+                            </div>
+                          ) : slot.status === "open" ? (
+                            <form action={applyShift} className="mt-2">
+                              <input type="hidden" name="slotId" value={slot.id} />
+                              <input type="hidden" name="workerId" value={id} />
+                              <Button size="sm" type="submit" className="h-7 text-xs">応募</Button>
+                            </form>
+                          ) : (
+                            <Badge variant="secondary" className="mt-2">確定済</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
