@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# Pre-commit hook for running tests and linting
+
+echo "🧪 Running pre-commit checks..."
+
+# Run tests
+echo "Running tests..."
+npm run test
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Please fix the failing tests before committing."
+  exit 1
+fi
+
+# Run lint
+echo "Running linter..."
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "❌ Linting failed. Please fix the linting errors before committing."
+  exit 1
+fi
+
+# Run type check
+echo "Running type check..."
+npm run type-check
+if [ $? -ne 0 ]; then
+  echo "❌ Type check failed. Please fix the type errors before committing."
+  exit 1
+fi
+
+# Check test coverage
+echo "Checking test coverage..."
+npm run test:coverage
+if [ $? -ne 0 ]; then
+  echo "⚠️  Coverage check failed. Consider improving test coverage."
+  # Don't exit here, just warn
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0
