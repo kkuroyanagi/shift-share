@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { fiscalYears, shiftAssignments, shiftSlots, workers } from "@/lib/db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getSelectedYear } from "@/lib/year";
 import { applyShift, withdrawShift } from "@/app/actions/assignments";
@@ -64,7 +64,7 @@ export default async function WorkerPage({
     ? await db
         .select()
         .from(shiftAssignments)
-        .where(sql`${shiftAssignments.shiftSlotId} = ANY(ARRAY[${sql.join(allSlots.map((s) => sql`${s.id}::uuid`))}])`)
+        .where(inArray(shiftAssignments.shiftSlotId, allSlots.map((s) => s.id)))
     : [];
 
   // 月合計

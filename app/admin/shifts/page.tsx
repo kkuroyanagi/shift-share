@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { fiscalYears, shiftAssignments, shiftSlots, workers } from "@/lib/db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getSelectedYear } from "@/lib/year";
 import { addSlot } from "@/app/actions/slots";
 import { formatTime } from "@/lib/utils";
@@ -35,23 +35,25 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
         .orderBy(asc(shiftSlots.date), asc(shiftSlots.startTime))
     : [];
 
+  const slotIds = slots.map((s) => s.id);
+
   // 割当を取得
-  const assignments = slots.length
+  const assignments = slotIds.length
     ? await db
         .select()
         .from(shiftAssignments)
-        .where(sql`${shiftAssignments.shiftSlotId} = ANY(ARRAY[${sql.join(slots.map((s) => sql`${s.id}::uuid`))}])`)
+        .where(inArray(shiftAssignments.shiftSlotId, slotIds))
     : [];
 
   // 割当数を取得
-  const assignmentCounts = slots.length
+  const assignmentCounts = slotIds.length
     ? await db
         .select({
           slotId: shiftAssignments.shiftSlotId,
           count: sql<number>`count(*)::int`,
         })
         .from(shiftAssignments)
-        .where(sql`${shiftAssignments.shiftSlotId} = ANY(ARRAY[${sql.join(slots.map((s) => sql`${s.id}::uuid`))}])`)
+        .where(inArray(shiftAssignments.shiftSlotId, slotIds))
         .groupBy(shiftAssignments.shiftSlotId)
     : [];
 
